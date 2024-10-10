@@ -1,3 +1,4 @@
+mod programs;
 const RPC_URL: &str = "https://api.devnet.solana.com";
 
 pub fn add(left: u64, right: u64) -> u64 {
@@ -14,12 +15,15 @@ mod tests {
         message::Message,
         signature::{read_keypair_file, Keypair},
         signer::Signer,
+        system_program,
         transaction::Transaction,
     };
     use std::{
         io::{self, BufRead},
         str::FromStr,
     };
+
+    use crate::programs::Turbin3_prereq::{CompleteArgs, Turbin3PrereqProgram, UpdateArgs};
 
     #[test]
     fn it_works() {
@@ -150,6 +154,53 @@ mod tests {
             &vec![&keypair],
             recent_blockhash,
         );
+
+        let signature = rpc_client
+            .send_and_confirm_transaction(&transaction)
+            .expect("Failed to send transaction");
+
+        println!(
+            "Success! Check out your TX here: https://explorer.solana.com/tx/{}/?cluster=devnet",
+            signature
+        );
+    }
+
+    #[test]
+    fn turbin3_registration() {
+        let rpc_client = RpcClient::new(RPC_URL);
+        let signer = read_keypair_file("turbin3-wallet.json").expect("Couldn't find wallet file");
+        let prereq = Turbin3PrereqProgram::derive_program_address(&[
+            b"prereq",
+            signer.pubkey().to_bytes().as_ref(),
+        ]);
+
+        let blockhash = rpc_client
+            .get_latest_blockhash()
+            .expect("Failed to get recent blockhash");
+
+        let args: CompleteArgs = CompleteArgs {
+            github: b"HongThaiPham".to_vec(),
+        };
+
+        let transaction = Turbin3PrereqProgram::complete(
+            &[&signer.pubkey(), &prereq, &system_program::id()],
+            &args,
+            Some(&signer.pubkey()),
+            &[&signer],
+            blockhash,
+        );
+
+        // let udargs: UpdateArgs = UpdateArgs {
+        //     github: b"HongThaiPham".to_vec(),
+        // };
+
+        // let transaction = Turbin3PrereqProgram::update(
+        //     &[&signer.pubkey(), &prereq, &system_program::id()],
+        //     &udargs,
+        //     Some(&signer.pubkey()),
+        //     &[&signer],
+        //     blockhash,
+        // );
 
         let signature = rpc_client
             .send_and_confirm_transaction(&transaction)
